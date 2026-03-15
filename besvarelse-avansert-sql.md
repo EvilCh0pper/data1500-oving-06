@@ -14,7 +14,7 @@
     FROM Ansatt;
     ```
     **Forklaring:**
-    *   *... Skriv din forklaring her ...*
+    *   Vis kolonnene fornavn, etternavn, årslønn, og en egen kolonne som rangerer etter årslønn nedadgående - og omdøp denne til Lønnsrangering. Hent fra ansatt.
 
 2.  **Spørring:**
     ```sql
@@ -27,23 +27,42 @@
     JOIN Kategori K ON V.KatNr = K.KatNr;
     ```
     **Forklaring:**
-    *   *... Skriv din forklaring her ...*
+    *   *Vis kolonnene v.betegnelse, k.navn omdøpt som kategori, v.pris. *
 
 ### Del 2: Lag SQL-spørringer
+ 
 
 1.  **Rangering av varer per kategori:**
     ```sql
-    -- Skriv din SQL-spørring her
+    SELECT
+        betegnelse,
+        katnr,
+        RANK() OVER (ORDER BY katnr DESC) AS kategorirangering
+    FROM vare;
     ```
 
 2.  **Løpende sum av ordrebeløp:**
     ```sql
     -- Skriv din SQL-spørring her
+
+    SELECT 
+        ordrenr,
+        antall,
+        SUM(antall * prisprenhet) OVER (PARTITION BY ordrenr ORDER BY vnr) AS løpende_pris
+    FROM ordrelinje;
+
+
     ```
 
 3.  **Prosentandel av kategoriprisen:**
     ```sql
-    -- Skriv din SQL-spørring her
+    SELECT 
+        betegnelse,
+        pris,
+        katnr,
+        ROUND(pris / (SUM(pris) OVER (PARTITION BY katnr)) * 100, 2) AS prosentandel,
+        SUM(pris) OVER (PARTITION BY katnr) AS kategorisum
+    FROM vare;
     ```
 
 ---
@@ -73,11 +92,26 @@
 1.  **Ansatte med over gjennomsnittslønn:**
     ```sql
     -- Skriv din SQL-spørring her
+    WITH gjennomsnittslønn AS (
+        SELECT 
+            AVG(Årslønn) AS gjennomsnitt
+        FROM ansatt
+    )
+    SELECT a.* 
+    FROM ansatt a, gjennomsnittslønn
+    WHERE a.Årslønn > gjennomsnittslønn.gjennomsnitt;
     ```
 
 2.  **Kategorier med flest varer:**
     ```sql
     -- Skriv din SQL-spørring her
+    WITH varestatistikk AS (
+        SELECT DISTINCT
+            k.navn,
+            SUM(v.antall) OVER (PARTITION BY k.katnr) AS antall
+        FROM vare v
+        JOIN kategori k ON v.katnr = k.katnr; 
+    )
     ```
 
 3.  **Rekursiv CTE - Hierarki av ansatte:**
