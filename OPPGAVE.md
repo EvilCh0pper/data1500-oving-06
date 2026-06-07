@@ -88,7 +88,29 @@ funksjon() OVER (
 ### Del 2: Lag SQL-spørringer (skriv i `besvarelse-avansert-sql.sql`)
 
 1.  **Rangering av varer per kategori:** Rangér alle varer etter pris (dyrest først) *innenfor* hver kategori. Resultatet skal vise varenavn, kategori, pris og rang.
+```sql
+SELECT 
+    betegnelse,
+    pris,
+    katnr,
+    RANK() OVER (PARTITION BY katnr ORDER BY pris DESC) AS rang
+FROM vare;
+```
+
 2.  **Løpende sum:** Vis alle ordrer med ordredato og totalbeløp (`SUM(Pris * Antall)` fra `Ordrelinje`), og legg til en kolonne som viser den *løpende summen* av ordrebeløp sortert etter dato.
+```sql
+SELECT
+    o.ordrenr,
+    o.ordredato,
+    SUM(ol.prisprEnhet * ol.antall) AS ordrebelop,
+    SUM(SUM(ol.prisprEnhet * ol.antall)) 
+        OVER (ORDER BY o.ordredato) AS lopende_sum
+FROM ordre o
+JOIN ordrelinje ol USING (ordrenr)
+GROUP BY o.ordrenr, o.ordredato
+ORDER BY o.ordredato;
+```
+
 3.  **Prosentandel av kategoriprisen:** For hver vare, beregn hvor stor prosentandel varens pris utgjør av den totale prisen for alle varer i samme kategori. Avrund til to desimaler.
 
 ---
@@ -144,8 +166,59 @@ SELECT * FROM hierarki;
 ### Del 2: Lag SQL-spørringer (skriv i `besvarelse-avansert-sql.sql`)
 
 1.  **Ansatte med over gjennomsnittslønn:** Bruk en CTE til å først beregne gjennomsnittslønnen for alle ansatte, og deretter liste opp alle ansatte som tjener mer enn dette gjennomsnittet. Vis navn, stilling og lønn.
+
+```sql
+WITH snittloenn AS (
+    SELECT AVG("Årslønn") AS snitt
+    FROM ansatt
+)
+
+SELECT 
+    CONCAT(fornavn, ' ', etternavn) AS navn,
+    stilling,
+    "Årslønn"
+FROM ansatt, snittloenn
+WHERE "Årslønn" > snittloenn.snitt;
+
+```
+
 2.  **Kategorier med flest varer:** Bruk en CTE til å telle antall varer i hver kategori, og deretter finne *kun* kategorien(e) med flest varer. Vis kategorinavn og antall.
+
+```sql
+WITH varer_per_kategori AS (
+    SELECT katnr, COUNT(*) AS antall
+    FROM vare
+    GROUP BY katnr
+)
+
+SELECT k.navn, vpk.antall
+FROM kategori AS k
+JOIN varer_per_kategori AS vpk USING(katnr)
+WHERE vpk.antall > 10 ORDER BY vpk.antall DESC;
+-- WHERE vpk.antall = (SELECT MAX(antall) FROM varer_per_kategori) egentlig riktig
+
+
+```
+
+
 3.  **Rekursiv CTE — Hierarki av ansatte:** Legg til en `LederAnsNr`-kolonne i `Ansatt`-tabellen og sett inn noen testverdier (f.eks. at ansatt 1 er leder for ansatt 2 og 3, og ansatt 2 er leder for ansatt 4). Skriv deretter en rekursiv CTE som finner alle ansatte som rapporterer til ansatt 1, direkte eller indirekte, og vis hvilket nivå i hierarkiet de befinner seg på.
+
+```sql
+WITH RECURSIVE hierarki AS (
+    SELECT CONCAT(fornavn, ' ', etternavn) AS navn, ansnr, stilling, LederAnsNr, 0 AS nivaa
+    FROM Ansatt
+    WHERE LederAnsNr IS NULL
+
+    UNION ALL
+
+    SELECT CONCAT(sub.fornavn, ' ', sub.etternavn) AS navn, sub.ansnr, sub.stilling, sub.LederAnsNr, dom.nivaa + 1
+    FROM Ansatt AS sub
+    JOIN hierarki AS dom ON sub.LederAnsNr = dom.ansnr
+)
+
+SELECT * FROM hierarki
+
+```
 
 ---
 
@@ -201,4 +274,54 @@ En subquery (underspørring) er en `SELECT`-setning inni en annen SQL-setning. S
 
 ```sql
 -- Hint: Bruk RANK() OVER (PARTITION BY ... ORDER BY ...) og filtrer på rang <= 3
+WITH totalt_belop AS (
+    SELECT 
+        vnr,
+        SUM(prisprenhet * antall) AS total
+    FROM ordrelinje
+    GROUP BY vnr;
+)
+
+SELECT 
+    v.betegnelse,
+    tb.total,
+    RANK() OVER (PARTITION BY tb.total ORDER BY tb.total) AS rang
+FROM vare v JOIN totalt_belop tb USING (vnr)
+HAVING rang <= 3;
+```
+
+correct:
+
+```sql
+WITH totalt_belop AS (
+    SELECT 
+        vnr,
+        SUM(prisprEnhet * antall) AS total
+    FROM ordrelinje
+    GROUP BY vnr
+),
+rangert AS (
+    SELECT 
+        v.betegnelse,
+        v.katnr,
+        tb.total,
+        RANK() OVER (PARTITION BY v.katnr ORDER BY tb.total DESC) AS rang
+    FROM vare v
+    JOIN totalt_belop tb USING (vnr)
+)
+SELECT *
+FROM rangert
+WHERE rang <= 3;
+```
+
+explanation:
+```sql
+WITH totalt_belop AS (
+    ...  -- CTE 1: beregner total per vare
+),
+rangert AS (
+    ...  -- CTE 2: bruker CTE 1 og legger til rang
+)
+SELECT * FROM rangert  -- henter fra CTE 2
+WHERE rang <= 3;
 ```
