@@ -83,7 +83,7 @@
     ORDER BY KPP.AntallKunder DESC;
     ```
     **Forklaring:**
-    *   *CTE-en viser antall kunder per postnr fra kundetabellen. Utenfor CTE-en vises p.poststed og kpp.antallKunder, der poststed P slås sammen med CTE-en tabellen kundeperpoststed gjennom postnr-nøkkelen. Videre spesifiseres at KPP.AntallKunder må være høyere enn 5, og sorteres nedover etter denne kolonnen*
+    *   *... Oppretter en CTE døpt til KunderPerPoststed (døpt til KPP utenfor), som viser kolonnene PostNr og funksjonen COUNT som teller alle rader i kunde-tabellen omdøpt til AntallKunder, og er videre grupeprt etter PostNr (nødvendig ved aggregate functions). Utenfor CTE-en vises P.poststed  og KPP.antallkunder. CTE-n og Postested P er slått sammen gjennom deres PostNr-nøkler. Videre spesifiseres at radene skal vises bare hvis KPP.antallkunder > 5, og videre sorteres spørringen etter KPP.AntallKunder DESC...*
 
 ### Del 2: Lag SQL-spørringer
 
