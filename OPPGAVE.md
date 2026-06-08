@@ -263,8 +263,104 @@ En subquery (underspørring) er en `SELECT`-setning inni en annen SQL-setning. S
 ### Del 2: Lag SQL-spørringer (skriv i `besvarelse-avansert-sql.sql`)
 
 1.  **Kunder som har bestilt en spesifikk vare:** Finn fornavn og etternavn på alle kunder som har bestilt varen med `VNr` = `'10820'`. Bruk en subquery med `IN`.
+```sql
+SELECT fornavn, etternavn
+FROM kunde
+WHERE knr IN (
+    SELECT k.knr
+    FROM kunde k 
+    JOIN ordre o ON k.knr = o.knr
+    JOIN ordrelinje ol ON o.ordrenr = ol.ordrenr
+    WHERE ol.vnr = '10820'
+);
+    
+
+```
 2.  **`EXISTS` — Kategorier med dyre varer:** Bruk `EXISTS` for å finne alle kategorier som har minst én vare med en pris over 1000 kr. Vis kategorinavn.
+
+```sql
+    SELECT k.katnr, k.navn
+    FROM kategori k
+    JOIN vare v USING (katnr)
+    WHERE EXISTS(
+        SELECT iv.katnr, pris
+        FROM vare iv
+        WHERE iv.pris > 1000 AND iv.katnr = k.katnr
+    )
+    GROUP BY k.katnr
+    ;
+```
+
+```sql
+--løsningsforslag:
+SELECT k.katnr, k.navn
+FROM kategori k
+WHERE EXISTS (
+    SELECT 1
+    FROM vare v
+    WHERE v.katnr = k.katnr
+    AND v.pris > 1000
+);
+```
+
 3.  **Varer dyrere enn gjennomsnittet:** Finn alle varer som er dyrere enn gjennomsnittsprisen for *alle* varer i databasen. Vis varenavn og pris, sortert fra dyrest til billigst.
+```sql
+SELECT v.betegnelse, v.pris
+FROM vare v
+WHERE v.pris > (
+    SELECT AVG(pris)
+    FROM vare
+)
+ORDER BY pris DESC;
+
+```
+
+## MER EKSTRA 
+1. **Exercise 1 — Basic ranking**
+Ranger alle ansatte etter årslønn innenfor hver stilling (stilling). Vis fornavn, stilling, årslønn og rang.
+```sql
+
+SELECT 
+    fornavn,
+    stilling,
+    "Årslønn",
+    RANK() OVER (PARTITION BY stilling ORDER BY "Årslønn" DESC)
+FROM ansatt;
+
+```
+
+2. **Exercise 2 — Running total**
+Vis alle ordrer med ordredato og totalbeløp per ordre, og legg til en løpende sum av ordrebeløp sortert etter dato.
+```sql
+SELECT
+    o.ordredato,
+    SUM(SUM(ol.prisprenhet*ol.antall)) OVER (ORDER BY o.ordredato)
+FROM ordre o
+JOIN ordrelinje ol USING (ordrenr)
+GROUP BY o.ordredato;
+```
+
+3. **Exercise 3 — Lag/Lead**
+For hver prisendring i prishistorikk, vis varenummer, dato, gammel pris, og den forrige prisen for samme vare. Bruk LAG().
+4. **Exercise 4 — Combined CTE + window function**
+Bruk en CTE til å beregne totalt antall ordrer per kunde, og bruk deretter en window function til å rangere kundene etter antall ordrer innenfor hvert poststed. Vis topp 2 kunder per poststed.
+```sql
+WITH shit AS (
+    SELECT k.knr, COUNT(*) AS antall_ordre
+    FROM ordre 
+    JOIN kunde k USING (knr)
+    GROUP BY k.knr
+)
+SELECT 
+    k.knr, 
+    s.antall_ordre,
+    k.postnr,
+    RANK() OVER (PARTITION BY k.postnr ORDER BY s.antall_ordre DESC)
+FROM kunde k JOIN shit s USING (knr)
+ORDER BY k.postnr;
+
+```
+
 
 ---
 
